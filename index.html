@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRAZA//CO2 — Calculadora de huella de carbono</title>
+<!-- PWA Config -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00d4a0">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --bg:#081420; --panel:#0f2233; --panel2:#142c40;
+  --brand:#00d4a0; --brand-dark:#04110c; --accent2:#4fc3f7;
+  --warn:#ffb020; --danger:#ff6b6b;
+  --text:#eaf4f9; --muted:#8aa6ba; --line:#1c3a52;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}
+html{scroll-behavior:smooth}
+body{background:radial-gradient(1200px 600px at 80% -10%,#0e2c42 0%,var(--bg) 55%);color:var(--text);min-height:100vh}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 5vw;border-bottom:1px solid var(--line);
+  background:rgba(8,20,32,.85);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
+.logo{font-size:1.35rem;font-weight:800;letter-spacing:1px}
+.logo span{color:var(--brand)}
+nav a{color:var(--muted);text-decoration:none;margin-left:16px;font-size:.83rem;transition:.2s}
+nav a:hover{color:var(--brand)}
+.hero{padding:44px 5vw 20px;text-align:center}
+.hero h1{font-size:clamp(1.6rem,4vw,2.5rem);line-height:1.2}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--brand),var(--accent2));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);margin-top:10px;max-width:660px;margin-inline:auto}
+main{max-width:1200px;margin:0 auto;padding:24px 5vw 80px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:24px;margin-bottom:24px;animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+h2{font-size:1.05rem;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+h2 .dot{width:9px;height:9px;border-radius:50%;background:var(--brand);box-shadow:0 0 10px var(--brand)}
+.scope-toggle{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.scope-toggle button{flex:1;padding:13px;background:transparent;border:none;color:var(--muted);
+  cursor:pointer;font-size:.93rem;font-weight:600;transition:.25s}
+.scope-toggle button.active{background:var(--brand);color:var(--brand-dark)}
+.scope-desc{font-size:.82rem;color:var(--muted);margin-bottom:20px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px}
+label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:6px}
+select,input[type=number],input[type=text],input[type=password]{width:100%;padding:10px 12px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:.93rem}
+input[type=range]{width:100%;accent-color:var(--brand)}
+.btn{margin-top:16px;padding:12px 26px;background:var(--brand);color:var(--brand-dark);
+  border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:.98rem;transition:.2s}
+.btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--brand)}
+.btn.small{padding:9px 16px;font-size:.85rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center;transition:.3s}
+.kpi:hover{border-color:var(--brand)}
+.kpi .value{font-size:1.7rem;font-weight:800;color:var(--accent2)}
+.kpi .unit{font-size:.73rem;color:var(--muted);margin-top:4px}
+.kpi.total .value{color:var(--brand)}
+.kpi.euro .value{color:var(--warn)}
+.export-bar{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px dashed var(--line)}
+.compare{display:grid;grid-template-columns:1fr 60px 1fr;gap:12px;align-items:stretch;margin-bottom:18px}
+.side{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px}
+.side h3{font-size:.8rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.side.after{border-color:var(--brand)}
+.side .big{font-size:1.5rem;font-weight:800}
+.side.before .big{color:var(--warn)}
+.side.after .big{color:var(--brand)}
+.arrow{display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:var(--brand)}
+.saving-banner{background:linear-gradient(90deg,#0c3a2e,#0f2233);border:1px solid var(--brand);
+  border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.saving-banner b{color:var(--brand);font-size:1.15rem}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:860px){.charts,.compare{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
+canvas{max-height:340px}
+footer{text-align:center;color:var(--muted);font-size:.78rem;padding:24px;border-top:1px solid var(--line)}
+.badge{font-size:.68rem;background:#14344a;color:var(--accent2);padding:3px 9px;border-radius:20px;margin-left:8px}
+/* Matrícula */
+.plate-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.plate-input{letter-spacing:3px;text-transform:uppercase;font-weight:800;font-size:1.1rem;text-align:center;max-width:220px}
+.plate-result{margin-top:16px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:18px;display:none}
+.plate-result.show{display:block;animation:fadeUp .35s ease both}
+.plate-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.dgt{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:1.15rem;color:#04110c;border:3px solid #fff2}
+.dgt.CERO{background:#00d4a0}.dgt.ECO{background:#4fc3f7}.dgt.B{background:#ffb020}.dgt.C{background:#ff6b6b}
+.spec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;font-size:.85rem}
+.spec-grid div{background:#0f2233;border:1px solid var(--line);border-radius:8px;padding:10px}
+.spec-grid b{display:block;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.rtvv{font-size:.72rem;padding:4px 10px;border-radius:20px;font-weight:700}
+.rtvv.ok{background:#0c3a2e;color:var(--brand);border:1px solid var(--brand)}
+.rtvv.no{background:#3a1c1c;color:var(--danger);border:1px solid var(--danger)}
+.err{color:var(--danger);font-size:.82rem;margin-top:10px;display:none}
+.hint{font-size:.75rem;color:var(--muted);margin-top:8px}
+/* API config */
+.api-config{background:#0a1a28;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.api-config summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--accent2);list-style:none;display:flex;align-items:center;gap:8px}
+.api-config summary::before{content:'⚙️'}
+.api-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+@media(max-width:600px){.api-fields{grid-template-columns:1fr}}
+.mode-tag{font-size:.7rem;padding:2px 8px;border-radius:12px;font-weight:700}
+.mode-tag.demo{background:#14344a;color:var(--accent2)}
+.mode-tag.live{background:#0c3a2e;color:var(--brand)}
+.status{font-size:.75rem;margin-top:8px;min-height:1.2em}
+.status.ok{color:var(--brand)}.status.fail{color:var(--danger)}.status.loading{color:var(--warn)}
+/* Escenarios payback */
+.scenario-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:.78rem;color:var(--muted)}
+.scenario-legend span{display:flex;align-items:center;gap:6px}
+.scenario-legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+
+<header>
+<div class="logo">TRAZA<span>//</span>CO2</div>
+<nav>
+  <a href="#matricula">Matrícula</a>
+  <a href="#calculadora">Calculadora</a>
+  <a href="#comparador">Comparador</a>
+  <a href="#coste">Coste €</a>
+  <a href="#comparativa">Gráficos</a>
+  <a href="#metodologia">Metodología</a>
+</nav>
+</header>
+
+<section class="hero">
+<h1>Calcula la huella de carbono <em>y su coste económico</em> de tu flota</h1>
+<p>Consulta vehículos por matrícula con API DGT real, analiza emisiones TTW/WTW y evalúa escenarios de precio CO₂ hasta 2030.</p>
+</section>
+
+<main>
+
+<!-- 0 · MATRÍCULA → FICHA TÉCNICA -->
+<section id="matricula" class="card">
+  <h2><span class="dot"></span>0 · Ficha técnica por matrícula <span class="mode-tag demo" id="apiModeTag">DEMO</span></h2>
+
+  <details class="api-config">
+    <summary>Configuración API DGT (producción)</summary>
+    <div class="api-fields">
+      <div>
+        <label>Endpoint API</label>
+        <input type="text" id="apiEndpoint" placeholder="https://api.dgt.es/v1/vehiculos" value="https://api.dgt.es/v1/vehiculos">
+      </div>
+      <div>
+        <label>API Key / Token</label>
+        <input type="password" id="apiKey" placeholder="sk_dgt_xxxxxxxx">
+      </div>
+      <div>
+        <label>Modo</label>
+        <select id="apiMode">
+          <option value="demo">Demo (base local)</option>
+          <option value="live">Producción (API DGT)</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="btn small ghost" style="margin-top:0" onclick="testApi()">🔌 Test conexión</button>
+      </div>
+    </div>
+    <p class="status" id="apiStatus"></p>
+    <p class="hint">⚠ La DGT no ofrece API pública abierta. Para producción se requiere convenio con proveedor autorizado (p. ej. Consultes, Verifficars) o acceso vía sede electrónica con certificado. Este conector es un wrapper adaptable a cualquier REST compatible.</p>
+  </details>
+
+  <div class="plate-row">
+    <div style="flex:1;min-width:220px">
+      <label>Matrícula española (formato 1234BCD)</label>
+      <input type="text" id="matriculaInput" class="plate-input" placeholder="1234BCD" maxlength="7">
+    </div>
+    <button class="btn" style="margin-top:0" id="btnBuscar" onclick="buscarMatricula()">🔎 Consultar</button>
+  </div>
+  <p class="hint">Prueba con: <strong>1234BCD</strong> (Diésel B) · <strong>5678EFG</strong> (Híbrido ECO) · <strong>9012HJK</strong> (Eléctrico CERO) · <strong>3456LMN</strong> (Gasolina C)</p>
+  <p class="err" id="plateErr">⚠ Formato de matrícula no válido. Usa 4 números + 3 letras (sin vocales ni ñ).</p>
+
+  <div class="plate-result" id="plateResult">
+    <div class="plate-head">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="dgt" id="pDgt">B</div>
+        <div>
+          <div style="font-weight:800;font-size:1.1rem" id="pModelo">—</div>
+          <div style="font-size:.8rem;color:var(--muted)" id="pMat">—</div>
+        </div>
+      </div>
+      <span class="rtvv" id="pRtvv">—</span>
+    </div>
+    <div class="spec-grid">
+      <div><b>Combustible</b><span id="pComb">—</span></div>
+      <div><b>Consumo medio</b><span id="pCons">—</span></div>
+      <div><b>Emisiones homologadas</b><span id="pEmis">—</span></div>
+      <div><b>Potencia fiscal</b><span id="pPot">—</span></div>
+      <div><b>Masa máxima</b><span id="pMasa">—</span></div>
+      <div><b>Año de matriculación</b><span id="pAno">—</span></div>
+    </div>
+    <button class="btn small ghost" onclick="usarEnCalculo()">⤵ Usar este vehículo en el cálculo</button>
+  </div>
+</section>
+
+<!-- 1 · ALCANCE + ENTRADAS -->
+<section id="calculadora" class="card">
+  <h2><span class="dot"></span>1 · Alcance del análisis</h2>
+  <div class="scope-toggle" id="scopeToggle">
+    <button data-scope="ttw" class="active">TTW · Tank-to-Wheel</button>
+    <button data-scope="wtw">WTW · Well-to-Wheel</button>
+  </div>
+  <p class="scope-desc" id="scopeDesc">
+    <strong>TTW:</strong> emisiones desde el depósito del vehículo hasta la rueda (escape/consumo directo).
+  </p>
+
+  <h2><span class="dot"></span>2 · Parámetros de entrada</h2>
+  <div class="grid">
+    <div><label>Tipo de vehículo</label>
+      <select id="vehiculo"><option>Turismo ligero</option><option>Furgoneta comercial</option><option>Camión pesado</option><option>Autobús urbano</option></select></div>
+    <div><label>Combustible escenario ANTES</label>
+      <select id="combAntes"><option value="diesel">Diésel</option><option value="gasolina">Gasolina</option><option value="glp">GLP</option><option value="gnc">GNC</option></select></div>
+    <div><label>Combustible escenario DESPUÉS</label>
+      <select id="combDespues"><option value="electrico_renovable">Eléctrico (100% renovable)</option><option value="electrico">Eléctrico (mix rojo)</option><option value="hidrogeno">Hidrógeno</option><option value="gnc">GNC</option><option value="glp">GLP</option></select></div>
+    <div><label>Km anuales: <span id="kmVal">20.000</span> km</label>
+      <input type="range" id="km" min="1000" max="150000" step="1000" value="20000"></div>
+    <div><label>Nº vehículos de la flota</label><input type="number" id="flota" value="25" min="1" max="5000"></div>
+    <div><label>Ahorro por eficiencia (%)</label><input type="number" id="eficiencia" value="10" min="0" max="50"></div>
+  </div>
+  <button class="btn" onclick="calcular()">Calcular huella →</button>
+</section>
+
+<!-- 3 · RESULTADOS + EXPORT -->
+<section class="card" id="resultados">
+  <h2><span class="dot"></span>3 · Resultados <span class="badge" id="scopeBadge">TTW</span></h2>
+  <div class="results">
+    <div class="kpi"><div class="value" id="rIntensidad">—</div><div class="unit">g CO₂e / km (después)</div></div>
+    <div class="kpi"><div class="value" id="rAnual">—</div><div class="unit">t CO₂e / vehículo · año</div></div>
+    <div class="kpi total"><div class="value" id="rFlota">—</div><div class="unit">t CO₂e / flota · año (después)</div></div>
+    <div class="kpi"><div class="value" id="rAhorro">—</div><div class="unit">% ahorro vs. escenario antes</div></div>
+  </div>
+  <div class="export-bar">
+    <button class="btn small" onclick="exportarPDF()">📄 Exportar informe PDF</button>
+    <button class="btn small ghost" onclick="exportarCSV()">📊 Exportar datos CSV</button>
+  </div>
+</section>
+
+<!-- 4 · COMPARADOR -->
+<section id="comparador" class="card">
+  <h2><span class="dot"></span>4 · Comparador antes / después de la flota</h2>
+  <div class="compare">
+    <div class="side before">
+      <h3>Antes · <span id="lblAntes">Diésel</span></h3>
+      <div class="big" id="cAntesFlota">—</div>
+      <div style="font-size:.75rem;color:var(--muted)">t CO₂e / año · flota completa</div>
+      <div style="margin-top:10px;font-size:.85rem" id="cAntesInt">—</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="side after">
+      <h3>Después · <span id="lblDespues">Eléctrico renovable</span></h3>
+      <div class="big" id="cDespFlota">—</div>
+      <div style="font-size:.75rem;color:var(--muted)">t CO₂e / año · flota completa</div>
+      <div style="margin-top:10px;font-size:.85rem" id="cDespInt">—</div>
+    </div>
+  </div>
+  <div class="saving-banner">
+    <span>Reducción anual estimada:</span>
+    <b id="cAhorroTn">— t CO₂e/año</b>
+    <span style="font-size:.8rem;color:var(--muted)">(equivale a ≈ <span id="cArboles">—</span> árboles absorbiendo CO₂/año)</span>
+  </div>
+  <div style="margin-top:18px"><canvas id="chartCompare" style="max-height:260px"></canvas></div>
+</section>
+
+<!-- 5 · COSTE ECONÓMICO + ESCENARIOS -->
+<section id="coste" class="card">
+  <h2><span class="dot"></span>5 · Valoración económica del CO₂ <span class="badge">€/t CO₂e</span></h2>
+  <div class="grid" style="margin-bottom:18px">
+    <div style="grid-column:span 2;min-width:260px">
+      <label>Precio base de la tonelada de CO₂e: <strong id="precioVal">85</strong> €/t</label>
+      <input type="range" id="precioCO2" min="20" max="200" step="5" value="85">
+      <p class="hint">Referencia: EU ETS promedio 2025 ≈ 73 €/t · coste social CE ≈ 100–150 €/t · ETS2 (edificios y transporte) previsto 2027.</p>
+    </div>
+    <div><label>Sobrecoste de inversión por vehículo (€)</label>
+      <input type="number" id="inversion" value="12000" min="0" step="500"></div>
+    <div><label>Ahorro operativo en combustible (€/vehículo·año)</label>
+      <input type="number" id="opex" value="900" min="0" step="50"></div>
+  </div>
+
+  <div class="results" style="margin-bottom:18px">
+    <div class="kpi euro"><div class="value" id="eAntes">—</div><div class="unit">€/año · coste de emisión ANTES</div></div>
+    <div class="kpi euro"><div class="value" id="eDespues">—</div><div class="unit">€/año · coste de emisión DESPUÉS</div></div>
+    <div class="kpi total"><div class="value" id="eAhorro">—</div><div class="unit">€/año · ahorro total flota</div></div>
+    <div class="kpi"><div class="value" id="ePayback">—</div><div class="unit">años · periodo de retorno</div></div>
+  </div>
+
+  <div class="saving-banner" style="border-color:var(--warn)">
+    <span style="font-size:.85rem">💡 El ahorro de <b id="eAhorro2" style="color:var(--warn)">—</b> equivale a
+    <b id="eETS" style="color:var(--warn)">—</b> derechos de emisión ETS2 ⛽ o a
+    <b id="ePeaje" style="color:var(--warn)">—</b> años de peaje urbano (≈2 €/día) por vehículo.</span>
+  </div>
+
+  <div style="margin-top:24px">
+    <h3 style="font-size:.88rem;color:var(--muted);margin-bottom:10px">Payback comparado: escenarios de precio CO₂ 2026–2035</h3>
+    <canvas id="chartPayback" style="max-height:320px"></canvas>
+    <div class="scenario-legend">
+      <span><i style="background:#ff6b6b"></i> Pesimista (40 €/t)</span>
+      <span><i style="background:#ffb020"></i> Actual (73 €/t ETS)</span>
+      <span><i style="background:#00d4a0"></i> Objetivo UE 2030 (150 €/t)</span>
+      <span><i style="background:#4fc3f7;border-top:2px dashed #4fc3f7;height:0;border-radius:0"></i> Inversión</span>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · GRÁFICOS -->
+<section id="comparativa" class="card">
+  <h2><span class="dot"></span>6 · Gráficos comparativos</h2>
+  <div class="charts">
+    <div>
+      <h3 style="font-size:.88rem;color:var(--muted);margin-bottom:10px">Emisiones por combustible (g CO₂e/km)</h3>
+      <canvas id="chartBar"></canvas>
+    </div>
+    <div>
+      <h3 style="font-size:.88rem;color:var(--muted);margin-bottom:10px">TTW vs Upstream descompuesto</h3>
+      <canvas id="chartStack"></canvas>
+    </div>
+  </div>
+  <div style="margin-top:24px">
+    <h3 style="font-size:.88rem;color:var(--muted);margin-bottom:10px">Evolución anual de emisiones de la flota (proyección 2026–2035)</h3>
+    <canvas id="chartLine" style="max-height:300px"></canvas>
+  </div>
+</section>
+
+<section id="metodologia" class="card">
+  <h2><span class="dot"></span>7 · Metodología</h2>
+  <p style="color:var(--muted);font-size:.87rem;line-height:1.7">
+    Factores de emisión basados en GLEC Framework y DEFRA. <strong>TTW</strong> = combustión a escape;
+    <strong>WTW</strong> = TTW + upstream. Valoración económica: coste de emisión = t CO₂e × €/t;
+    payback = (inversión adicional) / (ahorro emisión + ahorro operativo). Escenarios de precio CO₂:
+    Pesimista 40 €/t · Actual 73 €/t (promedio ETS 2025) · Objetivo UE 2030 150 €/t (BloombergNEF ETS2).
+    Equivalencia: 1 árbol ≈ 20 kg CO₂/año; 1 derecho ETS2 ≈ 1 t CO₂e.
+    Datos de matrícula: modo demo con base local; modo producción requiere API autorizada DGT/proveedor.
+  </p>
+</section>
+
+</main>
+
+<footer>TRAZA//CO2 · Calculadora de movilidad baja en carbono</footer>
+
+<script>
+// Registro de Service Worker para PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+      .catch(err => console.log('Error al registrar Service Worker:', err));
+  });
+}
+
+const FE = {
+gasolina:{ttw:178,upstream:92}, diesel:{ttw:160,upstream:72},
+glp:{ttw:145,upstream:60}, gnc:{ttw:130,upstream:65},
+electrico:{ttw:0,upstream:68}, electrico_renovable:{ttw:0,upstream:8},
+hidrogeno:{ttw:0,upstream:120}
+};
+const NAMES = {gasolina:'Gasolina',diesel:'Diésel',glp:'GLP',gnc:'GNC',
+electrico:'Eléctrico (mix)',electrico_renovable:'Eléctrico (renovable)',hidrogeno:'Hidrógeno'};
+
+/* Base de datos demo matrícula → ficha técnica */
+const FICHAS = {
+'1234BCD':{modelo:'Volkswagen Golf 2.0 TDI',comb:'diesel',consumo:'5,2 L/100km',emis:'132 g/km',pot:'14 CV',masa:'1.620 kg',ano:2019,dgt:'B'},
+'5678EFG':{modelo:'Toyota Corolla Hybrid 1.8',comb:'gasolina',consumo:'4,4 L/100km',emis:'96 g/km',pot:'12 CV',masa:'1.430 kg',ano:2021,dgt:'ECO'},
+'9012HJK':{modelo:'Tesla Model 3 Standard Range',comb:'electrico_renovable',consumo:'15,2 kWh/100km',emis:'0 g/km',pot:'—',masa:'1.733 kg',ano:2023,dgt:'CERO'},
+'3456LMN':{modelo:'Renault Clio TCe 90',comb:'gasolina',consumo:'5,8 L/100km',emis:'131 g/km',pot:'9 CV',masa:'1.180 kg',ano:2015,dgt:'C'}
+};
+const LETRAS_OK=/^[0-9]{4}[BCDFGHJKLMNPRSTVWXYZ]{3}$/;
+
+/* Escenarios de precio CO₂ (€/t) */
+const ESCENARIOS = {
+pesimista:{precio:40,color:'#ff6b6b',label:'Pesimista (40 €/t)'},
+actual:{precio:73,color:'#ffb020',label:'Actual ETS (73 €/t)'},
+objetivo:{precio:150,color:'#00d4a0',label:'Objetivo UE 2030 (150 €/t)'}
+};
+
+let scope='ttw', lastData=null, ultimaFicha=null;
+let barChart, stackChart, lineChart, cmpChart, payChart;
+
+document.querySelectorAll('#scopeToggle button').forEach(b=>{
+b.onclick=()=>{
+  document.querySelectorAll('#scopeToggle button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); scope=b.dataset.scope;
+  document.getElementById('scopeBadge').textContent=scope.toUpperCase();
+  document.getElementById('scopeDesc').innerHTML = scope==='ttw'
+    ? '<strong>TTW:</strong> emisiones desde el depósito del vehículo hasta la rueda (escape/consumo directo).'
+    : '<strong>WTW:</strong> incluye también emisiones upstream (extracción, refinado, generación eléctrica, distribución).';
+  calcular();
+};
+});
+document.getElementById('km').oninput=e=>document.getElementById('kmVal').textContent=Number(e.target.value).toLocaleString('es');
+document.getElementById('precioCO2').oninput=e=>{document.getElementById('precioVal').textContent=e.target.value; if(lastData)calcular();};
+document.getElementById('apiMode').onchange=e=>{
+const tag=document.getElementById('apiModeTag');
+tag.textContent=e.target.value==='live'?'PRODUCCIÓN':'DEMO';
+tag.className='mode-tag '+(e.target.value==='live'?'live':'demo');
+};
+
+function intensity(f){return scope==='ttw'? f.ttw : f.ttw+f.upstream;}
+
+/* ---------- API DGT ---------- */
+async function testApi(){
+const status=document.getElementById('apiStatus');
+const mode=document.getElementById('apiMode').value;
+if(mode==='demo'){status.textContent='✔ Modo demo activo. No se requiere conexión externa.';status.className='status ok';return;}
+const endpoint=document.getElementById('apiEndpoint').value.trim();
+const key=document.getElementById('apiKey').value.trim();
+if(!endpoint||!key){status.textContent='⚠ Completa endpoint y API key.';status.className='status fail';return;}
+status.textContent='⏳ Probando conexión…';status.className='status loading';
+try{
+  const res=await fetch(endpoint+'/health',{headers:{'Authorization':'Bearer '+key},signal:AbortSignal.timeout(5000)});
+  if(res.ok){status.textContent='✔ Conexión establecida ('+res.status+')';status.className='status ok';}
+  else{status.textContent='✗ Respuesta '+res.status+'. Verifica endpoint/credenciales.';status.className='status fail';}
+}catch(e){status.textContent='✗ Error de red/CORS: '+e.message;status.className='status fail';}
+}
+
+/* ---------- Matrícula ---------- */
+async function buscarMatricula(){
+const m=document.getElementById('matriculaInput').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+const err=document.getElementById('plateErr'), res=document.getElementById('plateResult');
+const btn=document.getElementById('btnBuscar');
+err.style.display='none'; res.classList.remove('show');
+if(!LETRAS_OK.test(m)){err.textContent='⚠ Formato de matrícula no válido. Usa 4 números + 3 letras (sin vocales ni ñ).';err.style.display='block';return;}
+
+const mode=document.getElementById('apiMode').value;
+let ficha=null;
+
+if(mode==='live'){
+  btn.disabled=true; btn.textContent='Consultando…';
+  try{
+    const endpoint=document.getElementById('apiEndpoint').value.trim();
+    const key=document.getElementById('apiKey').value.trim();
+    const resp=await fetch(endpoint+'/'+m,{headers:{'Authorization':'Bearer '+key},signal:AbortSignal.timeout(8000)});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data=await resp.json();
+    /* Mapeo adaptable al formato real del proveedor DGT */
+    ficha={
+      mat:m,
+      modelo:data.marca+' '+data.modelo+' '+data.version||data.denominacion||'Sin datos',
+      comb:mapearCombustible(data.combustible||data.carburante),
+      consumo:data.consumo_medio?data.consumo_medio+' L/100km':'—',
+      emis:data.emisiones_co2?data.emisiones_co2+' g/km':'—',
+      pot:data.potencia_fiscal?data.potencia_fiscal+' CV':'—',
+      masa:data.mma?data.mma+' kg':'—',
+      ano:data.fecha_matriculacion?new Date(data.fecha_matriculacion).getFullYear():'—',
+      dgt:data.distintivo||'B'
+    };
+  }catch(e){
+    err.textContent='⚠ API no disponible ('+e.message+'). Usando base demo como fallback.';
+    err.style.display='block';
+    ficha=FICHAS[m]||null;
+  }finally{
+    btn.disabled=false; btn.textContent='🔎 Consultar';
+  }
+}else{
+  ficha=FICHAS[m]||null;
+  if(!ficha){err.textContent='⚠ Matrícula no encontrada en la base demo. Prueba '+Object.keys(FICHAS).join(', ');err.style.display='block';return;}
+}
+
+if(!ficha){err.textContent='⚠ Sin datos para esta matrícula.';err.style.display='block';return;}
+ultimaFicha=ficha;
+document.getElementById('pDgt').textContent=ficha.dgt;
+document.getElementById('pDgt').className='dgt '+ficha.dgt;
+document.getElementById('pModelo').textContent=ficha.modelo;
+document.getElementById('pMat').textContent='Matrícula '+ficha.mat.slice(0,4)+' '+ficha.mat.slice(4);
+document.getElementById('pComb').textContent=NAMES[ficha.comb]||ficha.comb;
+document.getElementById('pCons').textContent=ficha.consumo;
+document.getElementById('pEmis').textContent=ficha.emis;
+document.getElementById('pPot').textContent=ficha.pot;
+document.getElementById('pMasa').textContent=ficha.masa;
+document.getElementById('pAno').textContent=ficha.ano;
+const rtvv=document.getElementById('pRtvv');
+const okRtvv=ficha.dgt==='CERO'||ficha.dgt==='ECO';
+rtvv.className='rtvv '+(okRtvv?'ok':'no');
+rtvv.textContent=okRtvv?'✔ RTVV exenta (Cataluña)':'⚠ Requiere distintivo RTVV';
+res.classList.add('show');
+}
+
+function mapearCombustible(raw){
+if(!raw)return 'diesel';
+const s=raw.toLowerCase();
+if(s.includes('elec')||s.includes('bevd')||s.includes('phev'))return 'electrico_renovable';
+if(s.includes('hidr'))return 'hidrogeno';
+if(s.includes('glp')||s.includes('autogas'))return 'glp';
+if(s.includes('gn')||s.includes('gas natural')||s.includes('cng')||s.includes('lng'))return 'gnc';
+if(s.includes('gasol')||s.includes('petrol'))return 'gasolina';
+return 'diesel';
+}
+
+function usarEnCalculo(){
+if(!ultimaFicha)return;
+document.getElementById('combDespues').value=ultimaFicha.comb;
+document.getElementById('combAntes').value=ultimaFicha.comb==='diesel'?'diesel':
+  (ultimaFicha.comb.startsWith('electrico')||ultimaFicha.comb==='hidrogeno')?'diesel':'gasolina';
+calcular();
+document.getElementById('calculadora').scrollIntoView({behavior:'smooth'});
+}
+
+/* ---------- Cálculo principal ---------- */
+function calcular(){
+const kA=document.getElementById('combAntes').value, kD=document.getElementById('combDespues').value;
+const km=+document.getElementById('km').value, flota=+document.getElementById('flota').value;
+const ef=1-(+document.getElementById('eficiencia').value)/100;
+const precio=+document.getElementById('precioCO2').value;
+const inversion=+document.getElementById('inversion').value;
+const opex=+document.getElementById('opex').value;
+const iA=intensity(FE[kA]), iD=intensity(FE[kD])*ef;
+const tA=iA*km*flota/1e6, tD=iD*km*flota/1e6, ahorro=tA>0?((tA-tD)/tA*100):0;
+const eA=tA*precio, eD=tD*precio, eAhorro=eA-eD+opex*flota;
+const payback=eAhorro>0?inversion*flota/eAhorro:Infinity;
+
+lastData={kA,kD,km,flota,ef,iA,iD,tA,tD,ahorro,precio,eA,eD,eAhorro,inversion,opex,payback};
+
+document.getElementById('rIntensidad').textContent=iD.toFixed(0);
+document.getElementById('rAnual').textContent=(iD*km/1e6).toFixed(2);
+document.getElementById('rFlota').textContent=tD.toFixed(1);
+document.getElementById('rAhorro').textContent=ahorro.toFixed(1);
+
+document.getElementById('lblAntes').textContent=NAMES[kA];
+document.getElementById('lblDespues').textContent=NAMES[kD];
+document.getElementById('cAntesFlota').textContent=tA.toFixed(1)+' t';
+document.getElementById('cDespFlota').textContent=tD.toFixed(1)+' t';
+document.getElementById('cAntesInt').textContent=iA.toFixed(0)+' g CO₂e/km';
+document.getElementById('cDespInt').textContent=iD.toFixed(0)+' g CO₂e/km';
+document.getElementById('cAhorroTn').textContent=(tA-tD).toFixed(1)+' t CO₂e/año';
+document.getElementById('cArboles').textContent=Math.round((tA-tD)*1000/20).toLocaleString('es');
+
+const eur=n=>n.toLocaleString('es',{maximumFractionDigits:0})+' €';
+document.getElementById('eAntes').textContent=eur(eA);
+document.getElementById('eDespues').textContent=eur(eD);
+document.getElementById('eAhorro').textContent=eur(eAhorro);
+document.getElementById('ePayback').textContent=isFinite(payback)?payback.toFixed(1)+' años':'∞';
+document.getElementById('eAhorro2').textContent=eur(eAhorro);
+document.getElementById('eETS').textContent=Math.round((tA-tD)).toLocaleString('es');
+document.getElementById('ePeaje').textContent=opex>0?(opex/(2*365)*flota).toFixed(1):'—';
+
+renderCharts();
+}
+
+function renderCharts(){
+const labels=Object.keys(FE).map(k=>NAMES[k]);
+const vals=Object.values(FE).map(f=>intensity(f));
+const kSel=document.getElementById('combDespues').value;
+const selIdx=Object.keys(FE).indexOf(kSel);
+
+if(barChart)barChart.destroy();
+barChart=new Chart(document.getElementById('chartBar'),{type:'bar',
+  data:{labels,datasets:[{data:vals,backgroundColor:vals.map((_,i)=>i===selIdx?'#00d4a0':'#4fc3f755')}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'#1c3a52'},ticks:{color:'#8aa6ba'}},x:{ticks:{color:'#8aa6ba'}}}}});
+
+const f=FE[kSel];
+if(stackChart)stackChart.destroy();
+stackChart=new Chart(document.getElementById('chartStack'),{type:'bar',
+  data:{labels:['TTW (escape)','Upstream (pozo)'],datasets:[{data:[f.ttw,f.upstream],backgroundColor:['#ffb020','#00d4a0']}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false}},
+    scales:{x:{stacked:true,grid:{color:'#1c3a52'},ticks:{color:'#8aa6ba'}},y:{stacked:true,ticks:{color:'#8aa6ba'}}}}});
+
+const years=[...Array(10)].map((_,i)=>2026+i);
+const transition=years.map((_,i)=>lastData.tA-(lastData.tA-lastData.tD)*(1-Math.pow(0.8,i)));
+
+if(lineChart)lineChart.destroy();
+lineChart=new Chart(document.getElementById('chartLine'),{type:'line',
+  data:{labels:years,datasets:[
+    {label:'Escenario inercial (sin transición)',data:years.map(()=>lastData.tA),borderColor:'#ffb02088',borderDash:[6,4],fill:false},
+    {label:'Escenario TRAZA//CO2 (transición)',data:transition,borderColor:'#00d4a0',backgroundColor:'#00d4a022',fill:true,tension:.35}]},
+  options:{scales:{y:{grid:{color:'#1c3a52'},ticks:{color:'#8aa6ba'}},x:{ticks:{color:'#8aa6ba'}}},plugins:{legend:{labels:{color:'#eaf4f9'}}}}});
+
+if(cmpChart)cmpChart.destroy();
+cmpChart=new Chart(document.getElementById('chartCompare'),{type:'bar',
+  data:{labels:['Antes ('+NAMES[lastData.kA]+')','Después ('+NAMES[lastData.kD]+')'],
+    datasets:[{label:'t CO₂e/año flota',data:[lastData.tA,lastData.tD],backgroundColor:['#ffb020','#00d4a0'],borderRadius:8}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'#1c3a52'},ticks:{color:'#8aa6ba'}},x:{ticks:{color:'#8aa6ba'}}}}});
+
+/* Payback con 3 escenarios de precio CO₂ superpuestos */
+const yrs=[...Array(11)].map((_,i)=>i);
+const inversionTotal=lastData.inversion*lastData.flota;
+const ahorroOpex=lastData.opex*lastData.flota;
+const reduccionTn=lastData.tA-lastData.tD;
+
+const datasets=Object.entries(ESCENARIOS).map(([key,esc])=>({
+  label:esc.label,
+  data:yrs.map(y=>(reduccionTn*esc.precio+ahorroOpex)*y),
+  borderColor:esc.color,
+  backgroundColor:esc.color+'22',
+  fill:false,
+  tension:.3,
+  borderWidth:2.5
+}));
+datasets.push({
+  label:'Inversión adicional (€)',
+  data:yrs.map(()=>inversionTotal),
+  borderColor:'#4fc3f7',
+  borderDash:[6,4],
+  fill:false,
+  borderWidth:2
+});
+
+if(payChart)payChart.destroy();
+payChart=new Chart(document.getElementById('chartPayback'),{type:'line',
+  data:{labels:yrs.map(y=>'Año '+y),datasets},
+  options:{
+    scales:{
+      y:{grid:{color:'#1c3a52'},ticks:{color:'#8aa6ba',callback:v=>v.toLocaleString('es')+' €'}},
+      x:{ticks:{color:'#8aa6ba'}}
+    },
+    plugins:{
+      legend:{labels:{color:'#eaf4f9',font:{size:11}}},
+      tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y.toLocaleString('es',{maximumFractionDigits:0})+' €'}}
+    }
+  }
+});
+}
+
+/* ---------- Export ---------- */
+function exportarCSV(){
+if(!lastData)return;
+const d=lastData;
+const rows=[
+  ['TRAZA//CO2 — Exportación de resultados'],
+  ['Alcance',scope.toUpperCase()],['Fecha',new Date().toLocaleString('es')],[],
+  ['Parámetro','Valor'],
+  ['Combustible antes',NAMES[d.kA]],['Combustible después',NAMES[d.kD]],
+  ['Km anuales',d.km],['Nº vehículos',d.flota],['Ahorro eficiencia %',(100*(1-d.ef)).toFixed(1)],[],
+  ['Intensidad antes (g CO2e/km)',d.iA.toFixed(1)],['Intensidad después (g CO2e/km)',d.iD.toFixed(1)],
+  ['Emisiones antes (t/año)',d.tA.toFixed(2)],['Emisiones después (t/año)',d.tD.toFixed(2)],
+  ['Ahorro (t CO2e/año)',(d.tA-d.tD).toFixed(2)],['Ahorro %',d.ahorro.toFixed(1)],[],
+  ['Precio CO2 base (€/t)',d.precio],['Coste emisión antes (€/año)',d.eA.toFixed(0)],
+  ['Coste emisión después (€/año)',d.eD.toFixed(0)],['Ahorro económico total (€/año)',d.eAhorro.toFixed(0)],
+  ['Inversión adicional (€/flota)',d.inversion*d.flota],['Payback (años)',isFinite(d.payback)?d.payback.toFixed(1):'infinito'],[],
+  ['Escenarios de precio CO2 (€/t)'],
+  ['Pesimista',40],['Actual ETS',73],['Objetivo UE 2030',150]
+];
+const csv=rows.map(r=>r.join(';')).join('\n');
+const a=document.createElement('a');
+a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+a.download='TRAZA-CO2_resultados.csv'; a.click();
+}
+
+async function exportarPDF(){
+if(!lastData)return;
+const btn=document.querySelector('.btn.small'); btn.textContent='Generando…';
+try{
+  const {jsPDF}=window.jspdf; const pdf=new jsPDF('p','mm','a4');
+  for(const id of ['resultados','coste']){
+    const canvas=await html2canvas(document.getElementById(id),{backgroundColor:'#0f2233',scale:2});
+    const w=190,h=canvas.height*w/canvas.width;
+    pdf.setFillColor(8,20,32); pdf.rect(0,0,210,297,'F');
+    pdf.setTextColor(0,212,160); pdf.setFontSize(16);
+    pdf.text('TRAZA//CO2 — '+(id==='resultados'?'Resultados de huella':'Valoración económica'),10,14);
+    pdf.setTextColor(234,244,249); pdf.setFontSize(9);
+    pdf.text('Alcance: '+scope.toUpperCase()+'  ·  '+new Date().toLocaleString('es'),10,20);
+    pdf.addImage(canvas.toDataURL('image/png'),'PNG',10,25,w,Math.min(h,250));
+    if(id==='coste')pdf.addPage();
+  }
+  const d=lastData;
+  pdf.setTextColor(0,212,160); pdf.setFontSize(11);
+  pdf.text('Resumen: '+NAMES[d.kA]+' -> '+NAMES[d.kD]+' | '+d.flota+' veh | '+d.km.toLocaleString('es')+' km/año',10,20);
+  pdf.text('Ahorro: '+(d.tA-d.tD).toFixed(1)+' t CO2e/año ('+d.ahorro.toFixed(1)+'%) | '+
+    d.eAhorro.toLocaleString('es',{maximumFractionDigits:0})+' €/año | Payback '+
+    (isFinite(d.payback)?d.payback.toFixed(1)+' años':'—'),10,27);
+  pdf.text('Escenarios payback: Pesimista 40€/t · Actual 73€/t · Objetivo UE2030 150€/t',10,34);
+  pdf.save('TRAZA-CO2_informe.pdf');
+}catch(e){alert('Error al generar PDF: '+e.message);}
+btn.textContent='📄 Exportar informe PDF';
+}
+
+calcular();
+</script>
+</body>
+</html>
